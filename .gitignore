@@ -38,3 +38,4 @@ Thumbs.db
 
 # Local config files (should not be committed)
 retool.json
+client_api_keys.json

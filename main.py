@@ -142,6 +142,26 @@ def load_client_api_keys():
         VALID_CLIENT_KEYS = set()
 
 
+def _parse_retool_accounts(accounts_data: List[Dict[str, Any]]) -> List[RetoolAccount]:
+    """解析Retool账户数据，返回有效账户列表"""
+    result = []
+    for acc in accounts_data:
+        domain_name = acc.get("domain_name")
+        x_xsrf_token = acc.get("x_xsrf_token")
+        access_token = acc.get("accessToken")
+        if domain_name and x_xsrf_token and access_token:
+            result.append({
+                "domain_name": domain_name,
+                "x_xsrf_token": x_xsrf_token,
+                "accessToken": access_token,
+                "is_valid": True,
+                "last_used": 0,
+                "error_count": 0,
+                "agents": []
+            })
+    return result
+
+
 def load_retool_accounts_from_file():
     """从环境变量或retool.json加载Retool账户"""
     # 优先尝试从环境变量加载
@@ -152,21 +172,7 @@ def load_retool_accounts_from_file():
             if not isinstance(accounts, list):
                 print("警告: RETOOL_CONFIG环境变量应包含账户对象列表")
             else:
-                result = []
-                for acc in accounts:
-                    domain_name = acc.get("domain_name")
-                    x_xsrf_token = acc.get("x_xsrf_token")
-                    access_token = acc.get("accessToken")
-                    if domain_name and x_xsrf_token and access_token:
-                        result.append({
-                            "domain_name": domain_name,
-                            "x_xsrf_token": x_xsrf_token,
-                            "accessToken": access_token,
-                            "is_valid": True,
-                            "last_used": 0,
-                            "error_count": 0,
-                            "agents": []
-                        })
+                result = _parse_retool_accounts(accounts)
                 print(f"成功加载 {len(result)} 个Retool账户 (来源: 环境变量)")
                 return result
         except json.JSONDecodeError as e:
@@ -181,22 +187,8 @@ def load_retool_accounts_from_file():
             if not isinstance(accounts, list):
                 print("警告: retool.json应包含账户对象列表")
                 return []
-                
-            result = []
-            for acc in accounts:
-                domain_name = acc.get("domain_name")
-                x_xsrf_token = acc.get("x_xsrf_token")
-                access_token = acc.get("accessToken")
-                if domain_name and x_xsrf_token and access_token:
-                    result.append({
-                        "domain_name": domain_name,
-                        "x_xsrf_token": x_xsrf_token,
-                        "accessToken": access_token,
-                        "is_valid": True,
-                        "last_used": 0,
-                        "error_count": 0,
-                        "agents": []
-                    })
+            
+            result = _parse_retool_accounts(accounts)
             print(f"成功加载 {len(result)} 个Retool账户 (来源: retool.json)")
             return result
     except FileNotFoundError:
