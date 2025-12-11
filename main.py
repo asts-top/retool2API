@@ -109,15 +109,33 @@ def log_debug(message: str):
 
 
 def load_client_api_keys():
-    """从client_api_keys.json加载客户端API密钥"""
+    """从环境变量或client_api_keys.json加载客户端API密钥"""
     global VALID_CLIENT_KEYS
+    
+    # 优先尝试从环境变量加载
+    env_keys = os.environ.get("CLIENT_API_KEYS")
+    if env_keys:
+        try:
+            keys = json.loads(env_keys)
+            if not isinstance(keys, list):
+                print("警告: CLIENT_API_KEYS环境变量应包含密钥列表")
+            else:
+                VALID_CLIENT_KEYS = set(keys)
+                print(f"成功加载 {len(VALID_CLIENT_KEYS)} 个客户端API密钥 (来源: 环境变量)")
+                return
+        except json.JSONDecodeError as e:
+            print(f"解析CLIENT_API_KEYS环境变量时出错: {e}")
+        except Exception as e:
+            print(f"加载CLIENT_API_KEYS环境变量时出错: {e}")
+    
+    # 回退到文件方式
     try:
         with open("client_api_keys.json", "r", encoding="utf-8") as f:
             keys = json.load(f)
             VALID_CLIENT_KEYS = set(keys) if isinstance(keys, list) else set()
-            print(f"成功加载 {len(VALID_CLIENT_KEYS)} 个客户端API密钥")
+            print(f"成功加载 {len(VALID_CLIENT_KEYS)} 个客户端API密钥 (来源: client_api_keys.json)")
     except FileNotFoundError:
-        print("错误: client_api_keys.json未找到。客户端认证将失败。")
+        print("错误: 未找到CLIENT_API_KEYS环境变量或client_api_keys.json文件。客户端认证将失败。")
         VALID_CLIENT_KEYS = set()
     except Exception as e:
         print(f"加载client_api_keys.json时出错: {e}")
@@ -125,7 +143,38 @@ def load_client_api_keys():
 
 
 def load_retool_accounts_from_file():
-    """从retool.json加载Retool账户"""
+    """从环境变量或retool.json加载Retool账户"""
+    # 优先尝试从环境变量加载
+    env_config = os.environ.get("RETOOL_CONFIG")
+    if env_config:
+        try:
+            accounts = json.loads(env_config)
+            if not isinstance(accounts, list):
+                print("警告: RETOOL_CONFIG环境变量应包含账户对象列表")
+            else:
+                result = []
+                for acc in accounts:
+                    domain_name = acc.get("domain_name")
+                    x_xsrf_token = acc.get("x_xsrf_token")
+                    access_token = acc.get("accessToken")
+                    if domain_name and x_xsrf_token and access_token:
+                        result.append({
+                            "domain_name": domain_name,
+                            "x_xsrf_token": x_xsrf_token,
+                            "accessToken": access_token,
+                            "is_valid": True,
+                            "last_used": 0,
+                            "error_count": 0,
+                            "agents": []
+                        })
+                print(f"成功加载 {len(result)} 个Retool账户 (来源: 环境变量)")
+                return result
+        except json.JSONDecodeError as e:
+            print(f"解析RETOOL_CONFIG环境变量时出错: {e}")
+        except Exception as e:
+            print(f"加载RETOOL_CONFIG环境变量时出错: {e}")
+    
+    # 回退到文件方式
     try:
         with open("retool.json", "r", encoding="utf-8") as f:
             accounts = json.load(f)
@@ -148,10 +197,10 @@ def load_retool_accounts_from_file():
                         "error_count": 0,
                         "agents": []
                     })
-            print(f"成功加载 {len(result)} 个Retool账户")
+            print(f"成功加载 {len(result)} 个Retool账户 (来源: retool.json)")
             return result
     except FileNotFoundError:
-        print("错误: retool.json未找到。API调用将失败。")
+        print("错误: 未找到RETOOL_CONFIG环境变量或retool.json文件。API调用将失败。")
         return []
     except Exception as e:
         print(f"加载retool.json时出错: {e}")
